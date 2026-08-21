@@ -7,6 +7,12 @@ class Magic_login extends AdminController
     public function __construct()
     {
         parent::__construct();
+
+        if (function_exists('magic_login_database_upgrade_required') && magic_login_database_upgrade_required()) {
+            set_alert('warning', 'Magic Login requires a database upgrade. Complete Setup → Modules → Upgrade Database before using the module.');
+            redirect(admin_url('modules'));
+        }
+
         $this->load->library('magic_login/Magic_login_service');
     }
 
@@ -35,6 +41,11 @@ class Magic_login extends AdminController
         $auditTable = db_prefix() . 'magic_login_audit';
         $data['audit'] = $this->db->table_exists($auditTable)
             ? $this->db->order_by('id', 'DESC')->limit(100)->get($auditTable)->result_array()
+            : [];
+
+        $updatesTable = db_prefix() . 'magic_login_updates';
+        $data['updates'] = $this->db->table_exists($updatesTable)
+            ? $this->db->order_by('id', 'DESC')->limit(50)->get($updatesTable)->result_array()
             : [];
 
         $data['endpoint_options'] = $this->endpoint_options();
