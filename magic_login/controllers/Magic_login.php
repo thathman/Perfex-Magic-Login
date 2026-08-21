@@ -49,8 +49,11 @@ class Magic_login extends AdminController
             'otp_max_attempts'         => max(1, (int) get_option('magic_login_otp_max_attempts')),
             'api_enabled'              => (int) get_option('magic_login_api_enabled'),
             'api_key_set'              => trim((string) get_option('magic_login_api_key_hash')) !== '',
+            'update_policy'            => (string) get_option('magic_login_update_policy'),
+            'last_update_status'       => (string) get_option('magic_login_last_update_status'),
         ];
         $data['new_api_key'] = $this->session->flashdata('magic_login_new_api_key');
+        $data['module_version'] = defined('MAGIC_LOGIN_VERSION') ? MAGIC_LOGIN_VERSION : 'unknown';
 
         $data['title'] = 'Magic Login';
         $this->load->view('magic_login/manage', $data);
@@ -143,6 +146,11 @@ class Magic_login extends AdminController
         $otpAttempts = max(1, min(10, (int) $this->input->post('otp_max_attempts')));
         $whatsappUrl = trim((string) $this->input->post('whatsapp_api_url', true));
         $whatsappMessage = trim((string) $this->input->post('whatsapp_message', false));
+        $updatePolicy = trim((string) $this->input->post('update_policy', true));
+
+        if (!in_array($updatePolicy, ['off', 'patch', 'safe'], true)) {
+            $updatePolicy = 'off';
+        }
 
         if ($whatsappUrl !== '' && !preg_match('#^https://#i', $whatsappUrl)) {
             set_alert('warning', 'WhatsApp API URL must use HTTPS.');
@@ -161,6 +169,7 @@ class Magic_login extends AdminController
         update_option('magic_login_otp_expiry_minutes', $otpExpiry);
         update_option('magic_login_otp_max_attempts', $otpAttempts);
         update_option('magic_login_api_enabled', $this->input->post('api_enabled') ? 1 : 0);
+        update_option('magic_login_update_policy', $updatePolicy);
 
         $whatsappToken = trim((string) $this->input->post('whatsapp_api_token', false));
         if ($whatsappToken !== '') {
@@ -209,6 +218,43 @@ class Magic_login extends AdminController
         update_option('magic_login_api_key_hash', '');
         update_option('magic_login_api_enabled', '0');
         set_alert('success', 'Magic Login API key revoked and API access disabled.');
+        redirect(admin_url('magic_login'));
+    }
+
+    public function check_updates()
+    {
+        if (!is_admin()) {
+            access_denied('magic_login');
+        }
+        if (!$this->input->post()) {
+            show_404();
+        }
+
+        $this->load->library('magic_login/Magic_login_updater');
+        $release = $this->magic_login_updater->latest_release(true);
+
+        if ($release) {
+            set_alert('success', 'Magic Login v' . $release['version'] . ' is available on GitHub.');
+        } else {
+            set_alert('info', 'Magic Login is up to date, or GitHub could not be reached.');
+        }
+
+        redirect(admin_url('magic_login'));
+    }
+
+    public function install_update()
+    {
+        if (!is_admin()) {
+            access_denied('magic_login');
+        }
+        if (!$this->input->post()) {
+            show_404();
+        }
+
+        $this->load->library('magic_login/Magic_login_updater');
+        $result = $this->magic_login_updater->install_latest(false);
+
+        set_alert(!empty($result['ok']) ? 'success' : 'danger', isset($result['message']) ? $result['message'] : 'Magic Login update failed.');
         redirect(admin_url('magic_login'));
     }
 
