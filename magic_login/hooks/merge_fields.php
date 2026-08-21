@@ -45,6 +45,10 @@ function magic_login_available_merge_fields($available)
 
 function magic_login_prepare_email_template($template)
 {
+    if (function_exists('magic_login_database_upgrade_required') && magic_login_database_upgrade_required()) {
+        return $template;
+    }
+
     if (!isset($GLOBALS['SENDING_EMAIL_TEMPLATE_CLASS'])) {
         return $template;
     }
