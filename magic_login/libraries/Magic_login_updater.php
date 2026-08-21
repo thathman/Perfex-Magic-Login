@@ -35,7 +35,8 @@ class Magic_login_updater
             return false;
         }
 
-        $version = ltrim(trim((string) $response['tag_name']), 'vV');
+        $tag = trim((string) $response['tag_name']);
+        $version = ltrim($tag, 'vV');
         if ($version === '' || !preg_match('/^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$/', $version)) {
             return false;
         }
@@ -62,12 +63,13 @@ class Magic_login_updater
         }
 
         $data = [
-            'available'  => true,
-            'version'    => $version,
-            'changelog'  => isset($response['html_url']) ? (string) $response['html_url'] : '',
-            'zip_url'    => $zipUrl,
-            'sha_url'    => $shaUrl,
-            'published'  => isset($response['published_at']) ? (string) $response['published_at'] : '',
+            'available' => true,
+            'version'   => $version,
+            'tag'       => $tag,
+            'changelog' => isset($response['html_url']) ? (string) $response['html_url'] : '',
+            'zip_url'   => $zipUrl,
+            'sha_url'   => $shaUrl,
+            'published' => isset($response['published_at']) ? (string) $response['published_at'] : '',
         ];
 
         update_option('magic_login_release_cache', json_encode($data));
@@ -106,7 +108,13 @@ class Magic_login_updater
             return ['ok' => false, 'message' => 'Magic Login module directory is not writable.'];
         }
 
-        $workDir = rtrim(TEMP_FOLDER, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'magic-login-update-' . bin2hex(random_bytes(8)) . DIRECTORY_SEPARATOR;
+        try {
+            $randomPart = bin2hex(random_bytes(8));
+        } catch (Throwable $e) {
+            return ['ok' => false, 'message' => 'Unable to initialize a secure update workspace.'];
+        }
+
+        $workDir = rtrim(TEMP_FOLDER, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'magic-login-update-' . $randomPart . DIRECTORY_SEPARATOR;
         if (!$this->ensure_directory($workDir)) {
             return ['ok' => false, 'message' => 'Unable to create update working directory.'];
         }
@@ -114,6 +122,12 @@ class Magic_login_updater
         $zipPath = $workDir . self::RELEASE_ASSET;
         $shaPath = $workDir . self::CHECKSUM_ASSET;
         $extractPath = $workDir . 'extract' . DIRECTORY_SEPARATOR;
+        $backupPath = '';
+        $updateId = 0;
+        $migrationStarted = false;
+        $installedVersion = defined('MAGIC_LOGIN_VERSION') ? MAGIC_LOGIN_VERSION : 'unknown';
+        $packageVersion = (string) $release['version'];
+        $actualHash = '';
 
         try {
             if (!$this->download($release['zip_url'], $zipPath) || !$this->download($release['sha_url'], $shaPath)) {
@@ -157,12 +171,15 @@ class Magic_login_updater
             }
 
             $packageVersion = $this->read_module_version($initFile);
-            if ($packageVersion !== $release['version']) {
+            if ($packageVersion !== (string) $release['version']) {
                 throw new RuntimeException('Package version does not match the GitHub release tag.');
             }
 
             $manifest = $this->read_manifest($newModulePath . 'update_manifest.json');
-            if ($automatic && (!$manifest || empty($manifest['auto_update_safe']))) {
+            if (!$manifest || empty($manifest['version']) || (string) $manifest['version'] !== $packageVersion) {
+                throw new RuntimeException('Release manifest is missing or does not match the package version.');
+            }
+            if ($automatic && empty($manifest['auto_update_safe'])) {
                 throw new RuntimeException('This release requires manual update approval.');
             }
 
@@ -173,27 +190,52 @@ class Magic_login_updater
                 ->row();
             $installedVersion = $installedRow ? (string) $installedRow->installed_version : MAGIC_LOGIN_VERSION;
 
-            $this->validate_migration_chain($newModulePath . 'migrations' . DIRECTORY_SEPARATOR, $installedVersion, $packageVersion);
+            $this->validate_migration_chain(
+                $newModulePath . 'migrations' . DIRECTORY_SEPARATOR,
+                $installedVersion,
+                $packageVersion
+            );
+
+            $this->ensure_update_history_table();
+            $updateId = $this->start_update_log(
+                $installedVersion,
+                $packageVersion,
+                isset($release['tag']) ? (string) $release['tag'] : 'v' . $packageVersion,
+                $actualHash,
+                (bool) $automatic
+            );
 
             $backupPath = $this->create_backup($modulePath, $installedVersion);
             if (!$backupPath) {
                 throw new RuntimeException('Unable to create module backup.');
             }
+            $this->update_update_log($updateId, ['backup_path' => $backupPath]);
 
             if (!$this->replace_directory($newModulePath, $modulePath)) {
-                $this->restore_backup($backupPath, $modulePath);
-                throw new RuntimeException('Unable to replace module files. The previous files were restored.');
+                $restored = $this->restore_backup($backupPath, $modulePath);
+                throw new RuntimeException(
+                    $restored
+                        ? 'Unable to replace module files. The previous files were restored.'
+                        : 'Unable to replace module files and automatic file restoration failed. Backup retained at ' . $backupPath . '.'
+                );
             }
 
+            // From this point forward no automatic file rollback is permitted.
+            // Database migrations can contain DDL that MySQL cannot reliably roll back.
+            $migrationStarted = true;
             $migrationResult = $this->run_perfex_migrations($packageVersion);
             if ($migrationResult !== true) {
-                $this->restore_backup($backupPath, $modulePath);
-                throw new RuntimeException('Module files were restored because the database migration failed: ' . $migrationResult);
+                throw new RuntimeException(
+                    'Database migration failed: ' . $migrationResult
+                    . '. The module backup was retained at ' . $backupPath
+                    . '. Do not retry the update until the database state has been reviewed.'
+                );
             }
 
             update_option('magic_login_release_cache_checked_at', '0');
             update_option('magic_login_release_cache', '');
             update_option('magic_login_last_update_status', 'Updated to ' . $packageVersion . ' at ' . date('Y-m-d H:i:s'));
+            $this->finish_update_log($updateId, 'success', null);
             $this->prune_backups();
             $this->remove_directory($workDir);
 
@@ -204,10 +246,21 @@ class Magic_login_updater
                 'backup'  => $backupPath,
             ];
         } catch (Throwable $e) {
-            update_option('magic_login_last_update_status', 'Update failed at ' . date('Y-m-d H:i:s') . ': ' . $e->getMessage());
-            log_message('error', 'Magic Login update failed: ' . $e->getMessage());
+            $message = $e->getMessage();
+            if ($migrationStarted && $backupPath !== '' && strpos($message, $backupPath) === false) {
+                $message .= ' Backup retained at ' . $backupPath . '. Automatic rollback was intentionally not attempted after database migration began.';
+            }
+
+            update_option('magic_login_last_update_status', 'Update failed at ' . date('Y-m-d H:i:s') . ': ' . $message);
+            $this->finish_update_log($updateId, 'failed', $message);
+            log_message('error', 'Magic Login update failed: ' . $message);
             $this->remove_directory($workDir);
-            return ['ok' => false, 'message' => $e->getMessage()];
+
+            return [
+                'ok'      => false,
+                'message' => $message,
+                'backup'  => $backupPath,
+            ];
         }
     }
 
@@ -299,7 +352,7 @@ class Magic_login_updater
     {
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $name = str_replace('\\', '/', (string) $zip->getNameIndex($i));
-            if ($name === '' || $name[0] === '/' || strpos($name, '../') !== false) {
+            if ($name === '' || $name[0] === '/' || strpos($name, '../') !== false || strpos($name, "\0") !== false) {
                 return false;
             }
             if ($name !== 'magic_login/' && strpos($name, 'magic_login/') !== 0) {
@@ -343,8 +396,6 @@ class Magic_login_updater
             }
         }
 
-        // Perfex permits a jump to the first pending migration, but once more
-        // than one migration is pending each subsequent number must be contiguous.
         $pending = array_keys(array_filter($available, function ($unused, $number) use ($from, $to) {
             return $number > $from && $number <= $to;
         }, ARRAY_FILTER_USE_BOTH));
@@ -379,6 +430,80 @@ class Magic_login_updater
         $migration->set_magic_login_target($targetVersion);
         $result = $migration->to_latest();
         return $result === false ? $migration->error_string() : true;
+    }
+
+    protected function ensure_update_history_table()
+    {
+        $table = db_prefix() . 'magic_login_updates';
+        if ($this->CI->db->table_exists($table)) {
+            return true;
+        }
+
+        $this->CI->db->query('CREATE TABLE `' . $table . "` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `from_version` VARCHAR(32) NOT NULL,
+            `to_version` VARCHAR(32) NOT NULL,
+            `release_tag` VARCHAR(64) NULL,
+            `checksum` CHAR(64) NULL,
+            `automatic` TINYINT(1) NOT NULL DEFAULT 0,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'started',
+            `error_message` TEXT NULL,
+            `backup_path` VARCHAR(500) NULL,
+            `started_at` DATETIME NOT NULL,
+            `completed_at` DATETIME NULL,
+            PRIMARY KEY (`id`),
+            KEY `status` (`status`),
+            KEY `started_at` (`started_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=" . $this->CI->db->char_set . ';');
+
+        return $this->CI->db->table_exists($table);
+    }
+
+    protected function start_update_log($fromVersion, $toVersion, $releaseTag, $checksum, $automatic)
+    {
+        $table = db_prefix() . 'magic_login_updates';
+        if (!$this->CI->db->table_exists($table)) {
+            return 0;
+        }
+
+        $this->CI->db->insert($table, [
+            'from_version' => (string) $fromVersion,
+            'to_version'   => (string) $toVersion,
+            'release_tag'  => (string) $releaseTag,
+            'checksum'     => (string) $checksum,
+            'automatic'    => $automatic ? 1 : 0,
+            'status'       => 'started',
+            'started_at'   => date('Y-m-d H:i:s'),
+        ]);
+
+        return (int) $this->CI->db->insert_id();
+    }
+
+    protected function update_update_log($id, array $data)
+    {
+        if ((int) $id < 1 || empty($data)) {
+            return;
+        }
+
+        $table = db_prefix() . 'magic_login_updates';
+        if (!$this->CI->db->table_exists($table)) {
+            return;
+        }
+
+        $this->CI->db->where('id', (int) $id)->update($table, $data);
+    }
+
+    protected function finish_update_log($id, $status, $errorMessage = null)
+    {
+        if ((int) $id < 1) {
+            return;
+        }
+
+        $this->update_update_log((int) $id, [
+            'status'        => (string) $status,
+            'error_message' => $errorMessage !== null ? (string) $errorMessage : null,
+            'completed_at'  => date('Y-m-d H:i:s'),
+        ]);
     }
 
     protected function create_backup($modulePath, $version)
