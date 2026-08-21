@@ -170,35 +170,23 @@ class Magic_login_otp
 
     protected function find_contact_by_phone($normalized)
     {
-        $digits = ltrim($normalized, '+');
-        $candidates = [$normalized, $digits, '00' . $digits];
-
-        $contact = $this->CI->db
-            ->where('active', 1)
-            ->where_in('phonenumber', $candidates)
-            ->get(db_prefix() . 'contacts')
-            ->row_array();
-
-        if ($contact) {
-            return $contact;
-        }
-
-        // Fallback for common formatting such as spaces, dashes and brackets.
+        // Compare normalized values so a duplicate cannot evade the check by
+        // using a different storage format (+, 00 prefix, spaces or dashes).
         $rows = $this->CI->db
             ->select('id,userid,firstname,lastname,email,phonenumber,active')
             ->where('active', 1)
             ->where('phonenumber !=', '')
-            ->limit(5000)
             ->get(db_prefix() . 'contacts')
             ->result_array();
 
+        $matches = [];
         foreach ($rows as $row) {
             if ($this->normalize_phone($row['phonenumber']) === $normalized) {
-                return $row;
+                $matches[] = $row;
             }
         }
 
-        return null;
+        return count($matches) === 1 ? $matches[0] : null;
     }
 
     protected function within_rate_limit($ip)
