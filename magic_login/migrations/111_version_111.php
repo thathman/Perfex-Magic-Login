@@ -53,6 +53,9 @@ class Migration_Version_111 extends App_module_migration
         }
 
         add_option('magic_login_whatsapp_enabled', '0');
+        add_option('magic_login_disable_password_login', '0');
+        add_option('magic_login_altcha_enabled', '1');
+        add_option('magic_login_altcha_secret', bin2hex(random_bytes(32)));
         add_option('magic_login_whatsapp_api_url', '');
         add_option('magic_login_whatsapp_api_token', '');
         add_option('magic_login_whatsapp_message', 'Your {company} login code is {code}. It expires in {minutes} minutes.');

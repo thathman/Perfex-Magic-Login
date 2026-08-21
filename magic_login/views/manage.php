@@ -79,6 +79,18 @@
                   <label for="auto_secure_email_links">Automatically secure customer links in supported email templates</label>
                 </div>
                 <p class="text-muted">Supported invoice, estimate, proposal, contract, ticket and project links become one-time login links for the actual email recipient.</p>
+
+                <div class="checkbox checkbox-warning">
+                  <input type="checkbox" id="disable_password_login" name="disable_password_login" value="1" <?php echo !empty($settings['disable_password_login']) ? 'checked' : ''; ?>>
+                  <label for="disable_password_login">Disable client username/password login</label>
+                </div>
+                <p class="text-muted">The client portal will offer secure email links and WhatsApp codes instead. Staff/admin login is not affected.</p>
+
+                <div class="checkbox checkbox-primary">
+                  <input type="checkbox" id="altcha_enabled" name="altcha_enabled" value="1" <?php echo !empty($settings['altcha_enabled']) ? 'checked' : ''; ?>>
+                  <label for="altcha_enabled">Enable automatic ALTCHA protection on authentication forms</label>
+                </div>
+                <p class="text-muted">A privacy-friendly proof-of-work challenge runs when a form is submitted. It protects client, WhatsApp, magic-link and admin login submissions.</p>
               </div>
             </div>
 

@@ -52,6 +52,8 @@ class Magic_login extends AdminController
         $data['settings'] = [
             'default_expiry_minutes'   => max(1, (int) get_option('magic_login_default_expiry_minutes')),
             'auto_secure_email_links'  => (int) get_option('magic_login_auto_secure_email_links'),
+            'disable_password_login'   => (int) get_option('magic_login_disable_password_login'),
+            'altcha_enabled'           => (int) get_option('magic_login_altcha_enabled'),
             'whatsapp_enabled'         => (int) get_option('magic_login_whatsapp_enabled'),
             'whatsapp_api_url'         => (string) get_option('magic_login_whatsapp_api_url'),
             'whatsapp_token_set'       => trim((string) get_option('magic_login_whatsapp_api_token')) !== '',
@@ -174,6 +176,8 @@ class Magic_login extends AdminController
 
         update_option('magic_login_default_expiry_minutes', $expiry);
         update_option('magic_login_auto_secure_email_links', $this->input->post('auto_secure_email_links') ? 1 : 0);
+        update_option('magic_login_disable_password_login', $this->input->post('disable_password_login') ? 1 : 0);
+        update_option('magic_login_altcha_enabled', $this->input->post('altcha_enabled') ? 1 : 0);
         update_option('magic_login_whatsapp_enabled', $this->input->post('whatsapp_enabled') ? 1 : 0);
         update_option('magic_login_whatsapp_api_url', $whatsappUrl);
         update_option('magic_login_whatsapp_message', $whatsappMessage);

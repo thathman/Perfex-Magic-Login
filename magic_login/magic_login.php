@@ -34,6 +34,7 @@ function magic_login_database_upgrade_required()
 
 require_once __DIR__ . '/hooks/merge_fields.php';
 require_once __DIR__ . '/hooks/whatsapp_login.php';
+require_once __DIR__ . '/hooks/security.php';
 require_once __DIR__ . '/hooks/updates.php';
 
 hooks()->add_action('admin_init', 'magic_login_module_init_menu_items');

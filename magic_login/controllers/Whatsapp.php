@@ -22,6 +22,7 @@ class Whatsapp extends ClientsController
 
         $this->load->library('magic_login/Magic_login_otp');
         $this->load->library('magic_login/Magic_login_auth');
+        $this->load->library('magic_login/Magic_login_altcha');
         $this->disableNavigation();
         $this->disableSubMenu();
     }
@@ -38,6 +39,12 @@ class Whatsapp extends ClientsController
     public function request()
     {
         if (!$this->input->post()) {
+            redirect(site_url('magic_login/whatsapp'));
+        }
+
+        if (function_exists('magic_login_altcha_enabled') && magic_login_altcha_enabled()
+            && !$this->magic_login_altcha->verify((string) $this->input->post('altcha', false))) {
+            set_alert('warning', 'Please complete the security check and try again.');
             redirect(site_url('magic_login/whatsapp'));
         }
 
@@ -66,6 +73,12 @@ class Whatsapp extends ClientsController
         }
 
         if ($this->input->post()) {
+            if (function_exists('magic_login_altcha_enabled') && magic_login_altcha_enabled()
+                && !$this->magic_login_altcha->verify((string) $this->input->post('altcha', false))) {
+                set_alert('warning', 'Please complete the security check and try again.');
+                redirect(site_url('magic_login/whatsapp/verify'));
+            }
+
             $code = trim((string) $this->input->post('code', true));
             $result = $this->magic_login_otp->verify($requestToken, $code);
 

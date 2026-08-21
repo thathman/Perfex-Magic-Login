@@ -7,4 +7,5 @@ return [
     'magic_login/api/request-otp',
     'magic_login/api/verify-otp',
     'magic_login/api/revoke',
+    'magic_login/altcha/challenge',
 ];

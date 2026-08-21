@@ -8,6 +8,9 @@ $route['magic_login/link/(:any)'] = 'link/index/$1';
 $route['magic_login/whatsapp'] = 'whatsapp/index';
 $route['magic_login/whatsapp/request'] = 'whatsapp/request';
 $route['magic_login/whatsapp/verify'] = 'whatsapp/verify';
+$route['magic_login/request'] = 'request/index';
+$route['magic_login/request/send'] = 'request/send';
+$route['magic_login/altcha/challenge'] = 'altcha/challenge';
 
 $route['magic_login/api/create-link'] = 'magic_login_api/create_link';
 $route['magic_login/api/request-otp'] = 'magic_login_api/request_otp';

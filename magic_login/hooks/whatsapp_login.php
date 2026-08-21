@@ -16,8 +16,10 @@ function magic_login_render_whatsapp_login_link()
 
     echo '<div class="text-center mtop20">';
     echo '<div class="text-muted mbot10">or</div>';
-    echo '<a class="btn btn-default btn-block" href="' . html_escape(site_url('magic_login/whatsapp')) . '">';
-    echo '<i class="fa fa-whatsapp"></i> Continue with WhatsApp';
+    echo '<a class="airix-auth-method airix-auth-method--whatsapp" href="' . html_escape(site_url('magic_login/whatsapp')) . '">';
+    echo '<span class="airix-auth-method__icon" aria-hidden="true"><i class="fa-brands fa-whatsapp"></i></span>';
+    echo '<span><strong>Continue with WhatsApp</strong><small>Use a one-time code sent to your phone</small></span>';
+    echo '<i class="fa-solid fa-arrow-right airix-auth-method__arrow" aria-hidden="true"></i>';
     echo '</a>';
     echo '</div>';
 }
