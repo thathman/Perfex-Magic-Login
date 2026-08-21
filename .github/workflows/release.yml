@@ -15,7 +15,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify release versions
+      - name: Verify release versions and migration target
         shell: bash
         run: |
           set -euo pipefail
@@ -23,8 +23,23 @@ jobs:
           MODULE_VERSION="$(sed -n 's/^Version:[[:space:]]*//p' magic_login/magic_login.php | head -n1 | tr -d '\r')"
           MANIFEST_VERSION="$(python3 -c 'import json; print(json.load(open("magic_login/update_manifest.json"))["version"])')"
 
+          [[ "$TAG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Release tags must use numeric X.Y.Z versions"; exit 1; }
           test "$TAG_VERSION" = "$MODULE_VERSION" || { echo "Tag $TAG_VERSION != module $MODULE_VERSION"; exit 1; }
           test "$TAG_VERSION" = "$MANIFEST_VERSION" || { echo "Tag $TAG_VERSION != manifest $MANIFEST_VERSION"; exit 1; }
+
+          MIGRATION_VERSION="${TAG_VERSION//./}"
+          test ${#MIGRATION_VERSION} -eq 3 || { echo "Perfex module migrations require a three-digit target; use single-digit X.Y.Z components"; exit 1; }
+          MIGRATION_FILE="magic_login/migrations/${MIGRATION_VERSION}_version_${MIGRATION_VERSION}.php"
+          test -f "$MIGRATION_FILE" || { echo "Missing Perfex migration target: $MIGRATION_FILE"; exit 1; }
+
+      - name: Lint release PHP
+        shell: bash
+        run: |
+          set -euo pipefail
+          find magic_login -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Validate release manifest
+        run: python3 -m json.tool magic_login/update_manifest.json >/dev/null
 
       - name: Build module package
         shell: bash
