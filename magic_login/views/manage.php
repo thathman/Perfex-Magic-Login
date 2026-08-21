@@ -154,7 +154,7 @@
                   </select>
                 </div>
 
-                <p class="text-muted">Automatic checks run through Perfex cron at most once per day. A release must explicitly set <code>auto_update_safe: true</code> in its signed package manifest before unattended installation is allowed.</p>
+                <p class="text-muted">Automatic checks run through Perfex cron at most once per day. A release must explicitly set <code>auto_update_safe: true</code> in its bundled package manifest before unattended installation is allowed.</p>
               </div>
             </div>
 
@@ -262,6 +262,39 @@
         </div>
       </div>
     </div>
+
+    <?php if (!empty($updates) && is_admin()) { ?>
+      <div class="row">
+        <div class="col-md-12">
+          <div class="panel_s">
+            <div class="panel-body">
+              <h4 class="no-margin">Update History</h4>
+              <hr class="hr-panel-heading" />
+              <div class="table-responsive">
+                <table class="table table-striped">
+                  <thead><tr><th>Started</th><th>Version</th><th>Mode</th><th>Status</th><th>Backup</th><th>Details</th></tr></thead>
+                  <tbody>
+                    <?php foreach ($updates as $update) {
+                      $updateStatus = isset($update['status']) ? (string) $update['status'] : 'unknown';
+                      $updateClass = $updateStatus === 'success' ? 'label-success' : ($updateStatus === 'failed' ? 'label-danger' : 'label-info');
+                    ?>
+                      <tr>
+                        <td><?php echo html_escape(_dt($update['started_at'])); ?></td>
+                        <td><?php echo html_escape($update['from_version'] . ' → ' . $update['to_version']); ?></td>
+                        <td><?php echo !empty($update['automatic']) ? 'Automatic' : 'Manual'; ?></td>
+                        <td><span class="label <?php echo $updateClass; ?>"><?php echo html_escape(ucfirst($updateStatus)); ?></span></td>
+                        <td style="max-width:280px;word-break:break-all;"><?php echo !empty($update['backup_path']) ? html_escape($update['backup_path']) : '-'; ?></td>
+                        <td style="max-width:420px;word-break:break-word;"><?php echo !empty($update['error_message']) ? html_escape($update['error_message']) : '-'; ?></td>
+                      </tr>
+                    <?php } ?>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    <?php } ?>
 
     <?php if (!empty($audit)) { ?>
       <div class="row">
