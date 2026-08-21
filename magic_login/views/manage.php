@@ -72,21 +72,13 @@
                 <h4 class="no-margin">General & Email</h4>
                 <hr class="hr-panel-heading" />
 
-                <?php echo render_input(
-                    'default_expiry_minutes',
-                    'Default token validity (minutes)',
-                    (string) ($settings['default_expiry_minutes'] ?? 60),
-                    'number',
-                    ['min' => 5, 'max' => 10080]
-                ); ?>
+                <?php echo render_input('default_expiry_minutes', 'Default token validity (minutes)', (string) ($settings['default_expiry_minutes'] ?? 60), 'number', ['min' => 5, 'max' => 10080]); ?>
 
                 <div class="checkbox checkbox-primary">
                   <input type="checkbox" id="auto_secure_email_links" name="auto_secure_email_links" value="1" <?php echo !empty($settings['auto_secure_email_links']) ? 'checked' : ''; ?>>
                   <label for="auto_secure_email_links">Automatically secure customer links in supported email templates</label>
                 </div>
-                <p class="text-muted">
-                  Supported invoice, estimate, proposal, contract, ticket and project links become one-time login links for the actual email recipient.
-                </p>
+                <p class="text-muted">Supported invoice, estimate, proposal, contract, ticket and project links become one-time login links for the actual email recipient.</p>
               </div>
             </div>
 
@@ -100,13 +92,7 @@
                   <label for="whatsapp_enabled">Enable “Continue with WhatsApp” on the client login page</label>
                 </div>
 
-                <?php echo render_input(
-                    'whatsapp_api_url',
-                    'Baileys / WhatsApp API URL',
-                    (string) ($settings['whatsapp_api_url'] ?? ''),
-                    'url',
-                    ['placeholder' => 'https://whatsapp.example.com/api/send']
-                ); ?>
+                <?php echo render_input('whatsapp_api_url', 'Baileys / WhatsApp API URL', (string) ($settings['whatsapp_api_url'] ?? ''), 'url', ['placeholder' => 'https://whatsapp.example.com/api/send']); ?>
 
                 <div class="form-group">
                   <label for="whatsapp_api_token">WhatsApp API Bearer Token</label>
@@ -135,9 +121,7 @@
                   </div>
                 </div>
 
-                <p class="text-muted">
-                  Default outbound JSON is <code>{"to":"+234...","message":"..."}</code>. Perfex hooks can adapt the payload and headers for a different Baileys endpoint.
-                </p>
+                <p class="text-muted">Default outbound JSON is <code>{"to":"+234...","message":"..."}</code>. Hooks can adapt the payload and headers for a different Baileys endpoint.</p>
               </div>
             </div>
 
@@ -151,12 +135,26 @@
                   <label for="api_enabled">Enable external Magic Login API</label>
                 </div>
 
-                <p class="text-muted">
-                  Authentication: <code>Authorization: Bearer YOUR_KEY</code>. API keys are stored only as SHA-256 hashes.
-                </p>
-                <p class="text-muted mbot0">
-                  Endpoints: <code>/magic_login/api/create-link</code>, <code>/request-otp</code>, <code>/verify-otp</code>, <code>/revoke</code>.
-                </p>
+                <p class="text-muted">Authentication: <code>Authorization: Bearer YOUR_KEY</code>. API keys are stored only as SHA-256 hashes.</p>
+                <p class="text-muted mbot0">Endpoints: <code>/magic_login/api/create-link</code>, <code>/request-otp</code>, <code>/verify-otp</code>, <code>/revoke</code>.</p>
+              </div>
+            </div>
+
+            <div class="panel_s">
+              <div class="panel-body">
+                <h4 class="no-margin">Updates</h4>
+                <hr class="hr-panel-heading" />
+
+                <div class="form-group">
+                  <label for="update_policy">Automatic Update Policy</label>
+                  <select name="update_policy" id="update_policy" class="form-control">
+                    <option value="off" <?php echo ($settings['update_policy'] ?? 'off') === 'off' ? 'selected' : ''; ?>>Manual updates only</option>
+                    <option value="patch" <?php echo ($settings['update_policy'] ?? 'off') === 'patch' ? 'selected' : ''; ?>>Safe patch releases only</option>
+                    <option value="safe" <?php echo ($settings['update_policy'] ?? 'off') === 'safe' ? 'selected' : ''; ?>>Any release marked auto-update safe</option>
+                  </select>
+                </div>
+
+                <p class="text-muted">Automatic checks run through Perfex cron at most once per day. A release must explicitly set <code>auto_update_safe: true</code> in its signed package manifest before unattended installation is allowed.</p>
               </div>
             </div>
 
@@ -190,6 +188,32 @@
               <?php } ?>
             </div>
           </div>
+
+          <div class="panel_s">
+            <div class="panel-body">
+              <h4 class="no-margin">GitHub Updates</h4>
+              <hr class="hr-panel-heading" />
+              <p><strong>Installed:</strong> v<?php echo html_escape($module_version ?? 'unknown'); ?></p>
+              <p class="text-muted"><?php echo html_escape((string) ($settings['last_update_status'] ?? 'Never checked.')); ?></p>
+              <p class="text-muted">Packages are accepted only from GitHub Releases with a matching SHA-256 checksum. The current module is backed up before files or migrations are changed.</p>
+
+              <div class="row">
+                <div class="col-md-6">
+                  <form method="post" action="<?php echo admin_url('magic_login/check_updates'); ?>">
+                    <input type="hidden" name="<?php echo $this->security->get_csrf_token_name(); ?>" value="<?php echo $this->security->get_csrf_hash(); ?>">
+                    <button type="submit" class="btn btn-default btn-block">Check GitHub</button>
+                  </form>
+                </div>
+                <div class="col-md-6">
+                  <form method="post" action="<?php echo admin_url('magic_login/install_update'); ?>">
+                    <input type="hidden" name="<?php echo $this->security->get_csrf_token_name(); ?>" value="<?php echo $this->security->get_csrf_hash(); ?>">
+                    <button type="submit" class="btn btn-info btn-block">Install Latest</button>
+                  </form>
+                </div>
+              </div>
+              <p class="text-center mtop15 mbot0"><a href="<?php echo admin_url('modules'); ?>">Open Perfex Modules</a></p>
+            </div>
+          </div>
         <?php } else { ?>
           <div class="panel_s"><div class="panel-body"><p class="text-muted">Only administrators can change Magic Login settings.</p></div></div>
         <?php } ?>
@@ -204,11 +228,7 @@
             <hr class="hr-panel-heading" />
             <div class="table-responsive">
               <table class="table table-striped">
-                <thead>
-                  <tr>
-                    <th>Contact</th><th>Company</th><th>Source</th><th>Context</th><th>Destination</th><th>Expires</th><th>Status</th><th></th>
-                  </tr>
-                </thead>
+                <thead><tr><th>Contact</th><th>Company</th><th>Source</th><th>Context</th><th>Destination</th><th>Expires</th><th>Status</th><th></th></tr></thead>
                 <tbody>
                   <?php foreach ($tokens as $t) {
                       if (!empty($t['revoked_at'])) { $status = 'Revoked'; $statusClass = 'label-danger'; }
