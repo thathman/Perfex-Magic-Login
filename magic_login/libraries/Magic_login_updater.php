@@ -62,6 +62,15 @@ class Magic_login_updater
             }
         }
 
+        if ($zipUrl === '' || $shaUrl === '') {
+            update_option('magic_login_release_cache', json_encode([
+                'available' => false,
+                'version'   => $version,
+                'tag'       => $tag,
+            ]));
+            return false;
+        }
+
         $data = [
             'available' => true,
             'version'   => $version,
@@ -345,7 +354,10 @@ class Magic_login_updater
         }
 
         $host = strtolower(isset($parts['host']) ? $parts['host'] : '');
-        return $host === 'github.com' || substr($host, -18) === '.githubusercontent.com';
+        $githubusercontentSuffix = '.githubusercontent.com';
+        return $host === 'github.com'
+            || (substr($host, -strlen($githubusercontentSuffix)) === $githubusercontentSuffix
+                && $host !== ltrim($githubusercontentSuffix, '.'));
     }
 
     protected function validate_archive(ZipArchive $zip)
@@ -357,6 +369,25 @@ class Magic_login_updater
             }
             if ($name !== 'magic_login/' && strpos($name, 'magic_login/') !== 0) {
                 return false;
+            }
+
+            $segments = explode('/', $name);
+            $lastSegment = count($segments) - 1;
+            foreach ($segments as $index => $segment) {
+                if ($segment === '..' || $segment === '.' || ($segment === '' && $index !== $lastSegment)) {
+                    return false;
+                }
+            }
+
+            if (method_exists($zip, 'getExternalAttributesIndex')) {
+                $opsys = 0;
+                $attributes = 0;
+                if ($zip->getExternalAttributesIndex($i, $opsys, $attributes) && $opsys === 3) {
+                    $fileType = ($attributes >> 16) & 0170000;
+                    if ($fileType === 0120000) {
+                        return false;
+                    }
+                }
             }
         }
 

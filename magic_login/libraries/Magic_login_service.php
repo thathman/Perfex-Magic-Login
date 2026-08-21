@@ -222,6 +222,14 @@ class Magic_login_service
             return 'clients';
         }
 
+        // Only http(s) absolute URLs are eligible for same-site validation.
+        // Reject every other URI scheme (javascript:, data:, file:, etc.)
+        // before treating the value as a relative portal path.
+        if (preg_match('#^[a-z][a-z0-9+.-]*:#i', $destination)
+            && !preg_match('#^https?://#i', $destination)) {
+            return 'clients';
+        }
+
         if (preg_match('#^https?://#i', $destination)) {
             $base = parse_url(site_url());
             $target = parse_url($destination);
