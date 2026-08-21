@@ -39,9 +39,18 @@ class Magic_login extends AdminController
 
         $data['endpoint_options'] = $this->endpoint_options();
         $data['settings'] = [
-            'default_expiry_minutes'  => max(1, (int) get_option('magic_login_default_expiry_minutes')),
-            'auto_secure_email_links' => (int) get_option('magic_login_auto_secure_email_links'),
+            'default_expiry_minutes'   => max(1, (int) get_option('magic_login_default_expiry_minutes')),
+            'auto_secure_email_links'  => (int) get_option('magic_login_auto_secure_email_links'),
+            'whatsapp_enabled'         => (int) get_option('magic_login_whatsapp_enabled'),
+            'whatsapp_api_url'         => (string) get_option('magic_login_whatsapp_api_url'),
+            'whatsapp_token_set'       => trim((string) get_option('magic_login_whatsapp_api_token')) !== '',
+            'whatsapp_message'         => (string) get_option('magic_login_whatsapp_message'),
+            'otp_expiry_minutes'       => max(1, (int) get_option('magic_login_otp_expiry_minutes')),
+            'otp_max_attempts'         => max(1, (int) get_option('magic_login_otp_max_attempts')),
+            'api_enabled'              => (int) get_option('magic_login_api_enabled'),
+            'api_key_set'              => trim((string) get_option('magic_login_api_key_hash')) !== '',
         ];
+        $data['new_api_key'] = $this->session->flashdata('magic_login_new_api_key');
 
         $data['title'] = 'Magic Login';
         $this->load->view('magic_login/manage', $data);
@@ -129,14 +138,77 @@ class Magic_login extends AdminController
             show_404();
         }
 
-        $expiry = (int) $this->input->post('default_expiry_minutes');
-        $expiry = max(5, min(10080, $expiry));
-        $autoSecure = $this->input->post('auto_secure_email_links') ? 1 : 0;
+        $expiry = max(5, min(10080, (int) $this->input->post('default_expiry_minutes')));
+        $otpExpiry = max(1, min(30, (int) $this->input->post('otp_expiry_minutes')));
+        $otpAttempts = max(1, min(10, (int) $this->input->post('otp_max_attempts')));
+        $whatsappUrl = trim((string) $this->input->post('whatsapp_api_url', true));
+        $whatsappMessage = trim((string) $this->input->post('whatsapp_message', false));
+
+        if ($whatsappUrl !== '' && !preg_match('#^https://#i', $whatsappUrl)) {
+            set_alert('warning', 'WhatsApp API URL must use HTTPS.');
+            redirect(admin_url('magic_login'));
+        }
+
+        if ($whatsappMessage === '') {
+            $whatsappMessage = 'Your {company} login code is {code}. It expires in {minutes} minutes.';
+        }
 
         update_option('magic_login_default_expiry_minutes', $expiry);
-        update_option('magic_login_auto_secure_email_links', $autoSecure);
+        update_option('magic_login_auto_secure_email_links', $this->input->post('auto_secure_email_links') ? 1 : 0);
+        update_option('magic_login_whatsapp_enabled', $this->input->post('whatsapp_enabled') ? 1 : 0);
+        update_option('magic_login_whatsapp_api_url', $whatsappUrl);
+        update_option('magic_login_whatsapp_message', $whatsappMessage);
+        update_option('magic_login_otp_expiry_minutes', $otpExpiry);
+        update_option('magic_login_otp_max_attempts', $otpAttempts);
+        update_option('magic_login_api_enabled', $this->input->post('api_enabled') ? 1 : 0);
+
+        $whatsappToken = trim((string) $this->input->post('whatsapp_api_token', false));
+        if ($whatsappToken !== '') {
+            update_option('magic_login_whatsapp_api_token', $whatsappToken);
+        }
+        if ($this->input->post('clear_whatsapp_api_token')) {
+            update_option('magic_login_whatsapp_api_token', '');
+        }
 
         set_alert('success', 'Magic Login settings saved.');
+        redirect(admin_url('magic_login'));
+    }
+
+    public function generate_api_key()
+    {
+        if (!is_admin()) {
+            access_denied('magic_login');
+        }
+        if (!$this->input->post()) {
+            show_404();
+        }
+
+        try {
+            $key = 'ml_' . bin2hex(random_bytes(32));
+        } catch (Throwable $e) {
+            log_message('error', 'Magic Login API key generation failed: ' . $e->getMessage());
+            set_alert('warning', 'Unable to generate an API key.');
+            redirect(admin_url('magic_login'));
+        }
+
+        update_option('magic_login_api_key_hash', hash('sha256', $key));
+        $this->session->set_flashdata('magic_login_new_api_key', $key);
+        set_alert('success', 'New API key generated. Copy it now; it will not be shown again.');
+        redirect(admin_url('magic_login'));
+    }
+
+    public function revoke_api_key()
+    {
+        if (!is_admin()) {
+            access_denied('magic_login');
+        }
+        if (!$this->input->post()) {
+            show_404();
+        }
+
+        update_option('magic_login_api_key_hash', '');
+        update_option('magic_login_api_enabled', '0');
+        set_alert('success', 'Magic Login API key revoked and API access disabled.');
         redirect(admin_url('magic_login'));
     }
 
