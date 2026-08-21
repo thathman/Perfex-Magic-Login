@@ -8,6 +8,10 @@ class Whatsapp extends ClientsController
     {
         parent::__construct();
 
+        if (function_exists('magic_login_database_upgrade_required') && magic_login_database_upgrade_required()) {
+            show_error('Magic Login is temporarily unavailable while a database upgrade is pending.', 503);
+        }
+
         if ((int) get_option('magic_login_whatsapp_enabled') !== 1) {
             show_404();
         }
