@@ -8,6 +8,7 @@ class Migration_Version_111 extends App_module_migration
     {
         $CI = &get_instance();
         $otpTable = db_prefix() . 'magic_login_otps';
+        $updatesTable = db_prefix() . 'magic_login_updates';
 
         if (!$CI->db->table_exists($otpTable)) {
             $CI->db->query('CREATE TABLE `' . $otpTable . "` (
@@ -29,6 +30,25 @@ class Migration_Version_111 extends App_module_migration
                 KEY `requested_ip` (`requested_ip`),
                 KEY `expires_at` (`expires_at`),
                 KEY `created_at` (`created_at`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=" . $CI->db->char_set . ';');
+        }
+
+        if (!$CI->db->table_exists($updatesTable)) {
+            $CI->db->query('CREATE TABLE `' . $updatesTable . "` (
+                `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                `from_version` VARCHAR(32) NOT NULL,
+                `to_version` VARCHAR(32) NOT NULL,
+                `release_tag` VARCHAR(64) NULL,
+                `checksum` CHAR(64) NULL,
+                `automatic` TINYINT(1) NOT NULL DEFAULT 0,
+                `status` VARCHAR(20) NOT NULL DEFAULT 'started',
+                `error_message` TEXT NULL,
+                `backup_path` VARCHAR(500) NULL,
+                `started_at` DATETIME NOT NULL,
+                `completed_at` DATETIME NULL,
+                PRIMARY KEY (`id`),
+                KEY `status` (`status`),
+                KEY `started_at` (`started_at`)
             ) ENGINE=InnoDB DEFAULT CHARSET=" . $CI->db->char_set . ';');
         }
 
