@@ -4,12 +4,15 @@ defined('BASEPATH') or exit('No direct script access allowed');
 
 /*
 Module Name: Magic Login
-Description: One-click magic login links for client contacts
-Version: 1.0.0
+Description: Secure one-click login links and passwordless access for Perfex CRM client contacts
+Version: 1.1.0
 Requires at least: 3.0.*
 */
 
 define('MAGIC_LOGIN_MODULE', 'magic_login');
+define('MAGIC_LOGIN_VERSION', '1.1.0');
+
+require_once __DIR__ . '/hooks/merge_fields.php';
 
 hooks()->add_action('admin_init', 'magic_login_module_init_menu_items');
 hooks()->add_action('admin_init', 'magic_login_permissions');
@@ -17,7 +20,7 @@ hooks()->add_action('admin_init', 'magic_login_permissions');
 register_activation_hook(MAGIC_LOGIN_MODULE, 'magic_login_module_activation_hook');
 function magic_login_module_activation_hook()
 {
-    require_once(__DIR__ . '/install.php');
+    require_once __DIR__ . '/install.php';
 }
 
 function magic_login_permissions()
