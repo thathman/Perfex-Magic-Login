@@ -14,6 +14,7 @@ define('MAGIC_LOGIN_VERSION', '1.1.1');
 
 require_once __DIR__ . '/hooks/merge_fields.php';
 require_once __DIR__ . '/hooks/whatsapp_login.php';
+require_once __DIR__ . '/hooks/updates.php';
 
 hooks()->add_action('admin_init', 'magic_login_module_init_menu_items');
 hooks()->add_action('admin_init', 'magic_login_permissions');
