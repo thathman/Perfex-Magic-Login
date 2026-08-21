@@ -97,14 +97,19 @@ Recent records appear on the Magic Login admin page.
 
 ## Perfex migration numbering
 
-Perfex's module migration system derives a numeric schema version from the module version and expects contiguous pending migration numbers. For the current release line:
+Perfex derives the target module schema version from the module's version header and expects a migration file for that target whenever the installed version changes. That means **every published Magic Login version must include its matching migration target**, even when that migration's `up()` method has no database work to perform.
+
+For the current release line:
 
 ```text
 1.1.0 -> 110_version_110.php
 1.1.1 -> 111_version_111.php
+1.1.2 -> 112_version_112.php   # required even if it is a no-op
 ```
 
-Do not introduce a database-changing release without planning the Perfex migration number first. Keep migration filenames/classes compatible with Perfex's three-digit sequential migration loader.
+Pending migrations must remain contiguous. Perfex's module migration loader uses three-digit migration identifiers, so this project currently restricts release versions to numeric `X.Y.Z` values whose dotless form is exactly three digits (single-digit components). The release workflow enforces this constraint.
+
+Plan the migration target before changing the module version. A code-only release still needs a no-op target migration so Perfex can advance `installed_version` safely.
 
 ## GitHub Actions release workflow
 
@@ -118,6 +123,6 @@ magic_login.php Version header
 update_manifest.json version
 ```
 
-It then builds `magic_login.zip`, creates `magic_login.zip.sha256`, and creates/uploads the GitHub Release assets.
+It also requires the matching Perfex migration target, validates the JSON manifest, and PHP-lints all module PHP files before packaging. Only after these checks pass does it build `magic_login.zip`, generate `magic_login.zip.sha256`, and create/upload the GitHub Release assets.
 
 Do not publish a production tag until the release checklist passes.
