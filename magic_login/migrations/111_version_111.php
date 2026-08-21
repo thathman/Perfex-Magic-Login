@@ -40,5 +40,10 @@ class Migration_Version_111 extends App_module_migration
         add_option('magic_login_otp_max_attempts', '5');
         add_option('magic_login_api_enabled', '0');
         add_option('magic_login_api_key_hash', '');
+        add_option('magic_login_update_policy', 'off');
+        add_option('magic_login_release_cache', '');
+        add_option('magic_login_release_cache_checked_at', '0');
+        add_option('magic_login_last_auto_update_check', '0');
+        add_option('magic_login_last_update_status', 'Never checked.');
     }
 }
