@@ -60,6 +60,11 @@ class Magic_login_whatsapp
         $apiToken = trim((string) get_option('magic_login_whatsapp_api_token'));
         if ($apiToken !== '') {
             $headers[] = 'Authorization: Bearer ' . $apiToken;
+            // Existing Dell Baileys gateways commonly authenticate with
+            // x-api-key rather than a Bearer token. Sending both preserves
+            // the documented contract while allowing that transport to be
+            // used without a site-specific hook adapter.
+            $headers[] = 'X-API-Key: ' . $apiToken;
         }
 
         $headers = hooks()->apply_filters('magic_login_whatsapp_headers', $headers, $context);

@@ -35,6 +35,9 @@ If a WhatsApp API token is configured, the default request also includes:
 Authorization: Bearer YOUR_TOKEN
 ```
 
+For compatibility with gateways that use an API-key header, the same configured
+token is also sent as `X-API-Key: YOUR_TOKEN`.
+
 Any HTTP `2xx` response is treated as successful by default.
 
 ## Adapting an existing Baileys API
