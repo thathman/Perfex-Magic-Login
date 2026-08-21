@@ -10,6 +10,10 @@ class Magic_login_api extends App_Controller
 
         $this->output->set_content_type('application/json');
 
+        if (function_exists('magic_login_database_upgrade_required') && magic_login_database_upgrade_required()) {
+            $this->respond(['ok' => false, 'error' => 'Magic Login database upgrade required'], 503);
+        }
+
         if ((int) get_option('magic_login_api_enabled') !== 1) {
             $this->respond(['ok' => false, 'error' => 'API disabled'], 404);
         }
