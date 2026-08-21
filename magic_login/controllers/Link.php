@@ -7,6 +7,11 @@ class Link extends App_Controller
     public function __construct()
     {
         parent::__construct();
+
+        if (function_exists('magic_login_database_upgrade_required') && magic_login_database_upgrade_required()) {
+            show_error('Magic Login is temporarily unavailable while a database upgrade is pending.', 503);
+        }
+
         $this->load->library('magic_login/Magic_login_service');
         $this->load->library('magic_login/Magic_login_auth');
     }
