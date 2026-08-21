@@ -2,59 +2,65 @@
 
 defined('BASEPATH') or exit('No direct script access allowed');
 
-class Link extends CI_Controller
+class Link extends App_Controller
 {
+    public function __construct()
+    {
+        parent::__construct();
+        $this->load->library('magic_login/Magic_login_service');
+        $this->load->library('magic_login/Magic_login_auth');
+    }
+
     public function index($token = '')
     {
+        $token = trim((string) $token);
         if ($token === '') {
-            show_error('Invalid token', 400);
+            $token = trim((string) $this->input->get('token', true));
+        }
+
+        $result = $this->magic_login_service->consume_token($token);
+        if (empty($result['ok'])) {
+            $this->show_token_error(isset($result['reason']) ? $result['reason'] : 'invalid');
             return;
         }
 
-        $hash = hash('sha256', $token);
-        $row = $this->db->where('token_hash', $hash)->get(db_prefix() . 'magic_login_tokens')->row_array();
+        $row = $result['row'];
+        $contact = $this->db
+            ->where('id', (int) $row['contact_id'])
+            ->where('active', 1)
+            ->get(db_prefix() . 'contacts')
+            ->row_array();
 
-        if (!$row) {
-            show_error('Invalid magic link.', 404);
+        if (!$contact || empty($contact['userid'])) {
+            $this->magic_login_service->audit('failed_contact', (int) $row['id'], (int) $row['contact_id']);
+            show_error('This login link can no longer be used.', 410);
             return;
         }
 
-        if (!empty($row['used_at'])) {
-            show_error('Magic link already used.', 410);
+        if (!$this->magic_login_auth->authenticate_contact($contact)) {
+            $this->magic_login_service->audit('failed_auth', (int) $row['id'], (int) $row['contact_id']);
+            show_error('Unable to complete login.', 500);
             return;
         }
 
-        if (strtotime($row['expires_at']) < time()) {
-            show_error('Magic link expired.', 410);
-            return;
+        redirect($this->magic_login_service->destination_url($row));
+    }
+
+    private function show_token_error($reason)
+    {
+        switch ($reason) {
+            case 'expired':
+                show_error('Magic login link expired.', 410);
+                break;
+            case 'used':
+                show_error('Magic login link already used.', 410);
+                break;
+            case 'revoked':
+                show_error('Magic login link has been revoked.', 410);
+                break;
+            default:
+                show_error('Invalid magic login link.', 404);
+                break;
         }
-
-        $contact = $this->db->where('id', (int)$row['contact_id'])->where('active', 1)->get(db_prefix() . 'contacts')->row_array();
-        if (!$contact) {
-            show_error('Contact not found.', 404);
-            return;
-        }
-
-        $this->db->where('id', (int)$row['id'])->update(db_prefix() . 'magic_login_tokens', ['used_at' => date('Y-m-d H:i:s')]);
-
-        $this->session->set_userdata([
-            'client_user_id'   => (int)$contact['userid'],
-            'contact_user_id'  => (int)$contact['id'],
-            'client_logged_in' => true,
-        ]);
-
-        $next = trim((string)$this->input->get('next', true));
-        if ($next === '' && !empty($row['redirect_path'])) {
-            $next = site_url((string)$row['redirect_path']);
-        }
-        if ($next !== '' && preg_match('#^https?://#i', $next)) {
-            $base = rtrim(site_url(), '/');
-            if (stripos($next, $base) === 0) {
-                redirect($next);
-                return;
-            }
-        }
-
-        redirect(site_url('clients'));
     }
 }
