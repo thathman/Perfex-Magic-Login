@@ -6,6 +6,10 @@ hooks()->add_action('clients_login_form_end', 'magic_login_render_whatsapp_login
 
 function magic_login_render_whatsapp_login_link()
 {
+    if (function_exists('magic_login_database_upgrade_required') && magic_login_database_upgrade_required()) {
+        return;
+    }
+
     if ((int) get_option('magic_login_whatsapp_enabled') !== 1) {
         return;
     }
