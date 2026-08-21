@@ -50,6 +50,10 @@ class Magic_login_whatsapp
         $payload = hooks()->apply_filters('magic_login_whatsapp_payload', [
             'to'      => $phone,
             'message' => $message,
+            // Dell's existing Baileys gateway names the text field `text`.
+            // Keep `message` for the documented generic contract and include
+            // the compatible alias so both transports work by default.
+            'text'    => $message,
         ], $context);
 
         $headers = [

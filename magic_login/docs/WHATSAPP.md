@@ -25,7 +25,8 @@ Magic Login sends an HTTPS JSON `POST` to the configured endpoint:
 ```json
 {
   "to": "+2348012345678",
-  "message": "Your Company login code is 123456. It expires in 5 minutes."
+  "message": "Your Company login code is 123456. It expires in 5 minutes.",
+  "text": "Your Company login code is 123456. It expires in 5 minutes."
 }
 ```
 
