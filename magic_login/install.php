@@ -29,6 +29,10 @@ if (!$CI->db->table_exists($tokensTable)) {
         UNIQUE KEY `token_hash_unique` (`token_hash`),
         KEY `contact_id` (`contact_id`),
         KEY `expires_at` (`expires_at`),
+        KEY `created_at` (`created_at`),
+        KEY `source_created_at` (`source`,`created_at`),
+        KEY `status_lookup` (`revoked_at`,`used_at`,`expires_at`),
+        KEY `used_at` (`used_at`),
         KEY `context_lookup` (`context_type`,`context_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=" . $CI->db->char_set . ';');
 }

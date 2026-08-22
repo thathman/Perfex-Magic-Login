@@ -49,7 +49,10 @@ class Magic_login extends AdminController
             ajax_access_denied();
         }
 
-        $term = trim((string) $this->input->get('q', true));
+        $term = trim((string) $this->input->post('q', true));
+        if ($term === '') {
+            $term = trim((string) $this->input->get('q', true));
+        }
         $this->db->select('c.id,c.firstname,c.lastname,c.email,cl.company')
             ->from(db_prefix() . 'contacts c')
             ->join(db_prefix() . 'clients cl', 'cl.userid=c.userid', 'left')
@@ -72,14 +75,15 @@ class Magic_login extends AdminController
             $label = trim(($company !== '' ? $company . ' — ' : '') . $name);
             $label .= $contact['email'] !== '' ? ' — ' . $contact['email'] : '';
             $results[] = [
-                'id'   => (int) $contact['id'],
-                'text' => $label,
+                'id'      => (int) $contact['id'],
+                'name'    => $label,
+                'subtext' => (string) $contact['email'],
             ];
         }
 
         $this->output
             ->set_content_type('application/json')
-            ->set_output(json_encode(['results' => $results]));
+            ->set_output(json_encode($results));
     }
 
     public function table()
@@ -118,22 +122,23 @@ class Magic_login extends AdminController
             $contact = trim($row['firstname'] . ' ' . $row['lastname']);
             $contactLabel = $contact !== '' ? e($contact) : 'Unknown contact';
             if ($row['email'] !== '') {
-                $contactLabel .= '<span class="text-muted small block">' . e($row['email']) . '</span>';
+                $contactLabel .= '<span class="text-muted small tw-block">' . e($row['email']) . '</span>';
             }
 
-            $context = $row['context_type'] !== '' && $row['context_type'] !== null ? $row['context_type'] : 'portal';
-            if (!empty($row['context_id'])) {
-                $context .= ' #' . (int) $row['context_id'];
-            }
+            $context = $this->context_label($row['context_type'], $row['context_id']);
 
-            $destination = '<span class="text-muted" title="' . e($this->magic_login_service->destination_url($row)) . '">' . e($row['redirect_path'] ?: 'clients') . '</span>';
+            $destination = '<span class="text-muted">' . e($this->destination_label(
+                $row['redirect_path'],
+                $row['context_type'],
+                $row['context_id']
+            )) . '</span>';
             $rowData = [
                 $contactLabel,
-                e($row['source'] ?: 'manual'),
+                e($this->delivery_label($row['source'] ?: 'manual')),
                 e($context),
                 $destination,
-                e(_dt($row['created_at'])),
-                e(_dt($row['expires_at'])),
+                '<span class="tw-whitespace-nowrap" style="white-space:nowrap">' . e(_dt($row['created_at'])) . '</span>',
+                '<span class="tw-whitespace-nowrap" style="white-space:nowrap">' . e(_dt($row['expires_at'])) . '</span>',
                 '<span class="label ' . e($status['class']) . '">' . e($status['label']) . '</span>',
             ];
 
@@ -172,7 +177,7 @@ class Magic_login extends AdminController
 
         $aColumns = [
             'a.created_at as created_at',
-            'a.event as event',
+            $this->audit_event_search_sql() . ' as event_search',
             'CONCAT_WS(CHAR(32), c.firstname, c.lastname, c.email) as contact_search',
             'a.token_id as token_id',
             'a.ip_address as ip_address',
@@ -182,6 +187,7 @@ class Magic_login extends AdminController
         $where = $this->audit_table_filters();
         $result = data_tables_init($aColumns, 'a.id', $auditTable . ' a', $join, $where, [
             'a.id as id',
+            'a.event as event',
             'c.firstname as firstname',
             'c.lastname as lastname',
             'c.email as email',
@@ -191,25 +197,18 @@ class Magic_login extends AdminController
         foreach ($result['rResult'] as $row) {
             $contact = e(trim($row['firstname'] . ' ' . $row['lastname']));
             if ($row['email'] !== '') {
-                $contact .= ($contact !== '' ? ' ' : '') . '<span class="text-muted small block">' . e($row['email']) . '</span>';
+                $contact .= ($contact !== '' ? ' ' : '') . '<span class="text-muted small tw-block">' . e($row['email']) . '</span>';
             }
-            $details = '-';
-            if (!empty($row['metadata'])) {
-                $decoded = json_decode($row['metadata'], true);
-                if (is_array($decoded)) {
-                    $details = e(implode(' · ', array_map(function ($key, $value) {
-                        return $key . ': ' . (is_scalar($value) ? $value : json_encode($value));
-                    }, array_keys($decoded), array_values($decoded))));
-                }
-            }
+            $event = $this->audit_event_presentation($row['event']);
+            $details = $this->audit_details($row['event'], $row['metadata']);
 
             $output['aaData'][] = [
-                e(_dt($row['created_at'])),
-                '<span class="label label-default">' . e(str_replace('_', ' ', $row['event'])) . '</span>',
+                '<span class="tw-whitespace-nowrap" style="white-space:nowrap">' . e(_dt($row['created_at'])) . '</span>',
+                '<span class="label ' . e($event['class']) . '">' . e($event['label']) . '</span>',
                 $contact !== '' ? $contact : '-',
                 $row['token_id'] !== null ? '#' . (int) $row['token_id'] : '-',
-                e((string) $row['ip_address']),
-                '<span class="text-muted small">' . $details . '</span>',
+                $row['ip_address'] !== null && $row['ip_address'] !== '' ? e((string) $row['ip_address']) : '-',
+                $details,
             ];
         }
 
@@ -507,6 +506,8 @@ class Magic_login extends AdminController
         $where = [];
         $status = trim((string) $this->input->post('status', true));
         $source = trim((string) $this->input->post('source', true));
+        $from = trim((string) $this->input->post('date_from', true));
+        $to = trim((string) $this->input->post('date_to', true));
 
         if ($status === 'active') {
             $where[] = 'AND t.used_at IS NULL AND t.revoked_at IS NULL AND t.expires_at > NOW()';
@@ -521,8 +522,162 @@ class Magic_login extends AdminController
         if (in_array($source, ['manual', 'email', 'api', 'whatsapp'], true)) {
             $where[] = 'AND t.source = ' . $this->db->escape($source);
         }
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) {
+            $where[] = 'AND t.created_at >= ' . $this->db->escape($from . ' 00:00:00');
+        }
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) {
+            $where[] = 'AND t.created_at <= ' . $this->db->escape($to . ' 23:59:59');
+        }
 
         return $where;
+    }
+
+    private function audit_event_search_sql()
+    {
+        return "CASE a.event"
+            . " WHEN 'created' THEN 'Magic link created'"
+            . " WHEN 'used' THEN 'Magic link used'"
+            . " WHEN 'revoked' THEN 'Magic link revoked'"
+            . " WHEN 'revoked_api' THEN 'Magic link revoked by API'"
+            . " WHEN 'email_request' THEN 'Email login requested'"
+            . " WHEN 'otp_sent' THEN 'OTP sent'"
+            . " WHEN 'otp_verified' THEN 'OTP verified'"
+            . " WHEN 'otp_failed' THEN 'OTP verification failed'"
+            . " WHEN 'otp_delivery_failed' THEN 'OTP delivery failed'"
+            . " WHEN 'otp_request_unknown' THEN 'OTP requested for unknown contact'"
+            . " WHEN 'failed_contact' THEN 'Magic link contact unavailable'"
+            . " WHEN 'failed_auth' THEN 'Magic link authentication failed'"
+            . " ELSE REPLACE(a.event, '_', ' ') END";
+    }
+
+    private function audit_event_presentation($event)
+    {
+        $events = [
+            'created'             => ['label' => 'Magic link created', 'class' => 'label-info'],
+            'used'                => ['label' => 'Magic link used', 'class' => 'label-success'],
+            'revoked'             => ['label' => 'Magic link revoked', 'class' => 'label-danger'],
+            'revoked_api'         => ['label' => 'Magic link revoked by API', 'class' => 'label-danger'],
+            'email_request'       => ['label' => 'Email login requested', 'class' => 'label-default'],
+            'otp_sent'            => ['label' => 'OTP sent', 'class' => 'label-info'],
+            'otp_verified'        => ['label' => 'OTP verified', 'class' => 'label-success'],
+            'otp_failed'          => ['label' => 'OTP verification failed', 'class' => 'label-warning'],
+            'otp_delivery_failed' => ['label' => 'OTP delivery failed', 'class' => 'label-danger'],
+            'otp_request_unknown' => ['label' => 'OTP request not matched', 'class' => 'label-default'],
+            'failed_contact'      => ['label' => 'Contact unavailable', 'class' => 'label-warning'],
+            'failed_auth'         => ['label' => 'Authentication failed', 'class' => 'label-danger'],
+        ];
+
+        if (isset($events[$event])) {
+            return $events[$event];
+        }
+
+        return [
+            'label' => ucfirst(str_replace('_', ' ', (string) $event)),
+            'class' => 'label-default',
+        ];
+    }
+
+    private function audit_details($event, $metadataJson)
+    {
+        static $staffNames = [];
+
+        $metadata = json_decode((string) $metadataJson, true);
+        $metadata = is_array($metadata) ? $metadata : [];
+        $details = [];
+
+        if (!empty($metadata['source'])) {
+            $details[] = '<span><strong>Delivery:</strong> ' . e($this->delivery_label($metadata['source'])) . '</span>';
+        } elseif ($event === 'email_request') {
+            $details[] = '<span><strong>Delivery:</strong> Email</span>';
+        } elseif (strpos((string) $event, 'otp_') === 0) {
+            $details[] = '<span><strong>Delivery:</strong> WhatsApp</span>';
+        } elseif ($event === 'revoked_api') {
+            $details[] = '<span><strong>Source:</strong> API</span>';
+        }
+
+        $contextType = isset($metadata['context_type']) ? $metadata['context_type'] : null;
+        $contextId = isset($metadata['context_id']) ? $metadata['context_id'] : null;
+        if ($contextType !== null && $contextType !== '') {
+            $details[] = '<span><strong>Destination:</strong> ' . e($this->context_label($contextType, $contextId)) . '</span>';
+        } elseif (in_array($event, ['created', 'used', 'email_request', 'failed_contact', 'failed_auth'], true)) {
+            $details[] = '<span><strong>Destination:</strong> Client Portal</span>';
+        }
+
+        if ($event === 'revoked' && !empty($metadata['revoked_by'])) {
+            $staffId = (int) $metadata['revoked_by'];
+            if (!array_key_exists($staffId, $staffNames)) {
+                $staffNames[$staffId] = function_exists('get_staff_full_name') ? get_staff_full_name($staffId) : '';
+            }
+            $staffName = $staffNames[$staffId];
+            if ($staffName !== '') {
+                $details[] = '<span><strong>Revoked by:</strong> ' . e($staffName) . '</span>';
+            }
+        }
+
+        if (empty($details)) {
+            return '<span class="text-muted">No additional details</span>';
+        }
+
+        return '<div class="tw-flex tw-flex-col tw-gap-1 small">' . implode('', $details) . '</div>';
+    }
+
+    private function delivery_label($source)
+    {
+        $labels = [
+            'manual'   => 'Manual',
+            'email'    => 'Email',
+            'api'      => 'API',
+            'whatsapp' => 'WhatsApp',
+        ];
+
+        $source = strtolower(trim((string) $source));
+        return isset($labels[$source]) ? $labels[$source] : ucfirst(str_replace('_', ' ', $source));
+    }
+
+    private function context_label($contextType, $contextId = null)
+    {
+        $type = strtolower(trim((string) $contextType));
+        $labels = [
+            ''         => 'Client Portal',
+            'portal'   => 'Client Portal',
+            'clients'  => 'Client Portal',
+            'invoice'  => 'Invoice',
+            'estimate' => 'Estimate',
+            'proposal' => 'Proposal',
+            'contract' => 'Contract',
+            'project'  => 'Project',
+            'ticket'   => 'Support Ticket',
+        ];
+        $label = isset($labels[$type]) ? $labels[$type] : ucwords(str_replace(['_', '-'], ' ', $type));
+
+        if (!empty($contextId) && $type !== '' && !in_array($type, ['portal', 'clients'], true)) {
+            $label .= ' #' . (int) $contextId;
+        }
+
+        return $label;
+    }
+
+    private function destination_label($redirectPath, $contextType = null, $contextId = null)
+    {
+        $path = trim((string) $redirectPath, '/');
+        $labels = [
+            ''                => 'Client Dashboard',
+            'clients'         => 'Client Dashboard',
+            'vault/client'    => 'Vault Portal',
+            'clients/projects'=> 'Projects',
+            'clients/tickets' => 'Support Tickets',
+            'clients/profile' => 'Profile',
+        ];
+
+        if (isset($labels[$path])) {
+            return $labels[$path];
+        }
+
+        if ($contextType !== null && trim((string) $contextType) !== '') {
+            return $this->context_label($contextType, $contextId);
+        }
+
+        return 'Custom portal page';
     }
 
     private function audit_table_filters()

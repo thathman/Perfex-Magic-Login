@@ -3,6 +3,14 @@
 $CI = &get_instance();
 $tokenConfigured = trim((string) get_option('magic_login_whatsapp_api_token')) !== '';
 $apiConfigured = trim((string) get_option('magic_login_api_key_hash')) !== '';
+$releaseCheckedAt = (int) get_option('magic_login_release_cache_checked_at');
+$releaseCache = json_decode((string) get_option('magic_login_release_cache'), true);
+$updateAvailable = $releaseCheckedAt > 0
+    && is_array($releaseCache)
+    && !empty($releaseCache['available'])
+    && !empty($releaseCache['version'])
+    && defined('MAGIC_LOGIN_VERSION')
+    && version_compare((string) $releaseCache['version'], MAGIC_LOGIN_VERSION, '>');
 $updates = [];
 $updatesTable = db_prefix() . 'magic_login_updates';
 if ($CI->db->table_exists($updatesTable)) {
@@ -75,8 +83,9 @@ if ($CI->db->table_exists($updatesTable)) {
                 </div>
                 <?php echo render_input('whatsapp_api_url', 'WhatsApp transport endpoint', (string) get_option('magic_login_whatsapp_api_url'), 'url', ['placeholder' => 'https://transport.example.com/send']); ?>
                 <div class="form-group">
-                    <label for="whatsapp_api_token">Bearer token</label>
-                    <input type="password" class="form-control" name="whatsapp_api_token" id="whatsapp_api_token" autocomplete="new-password" placeholder="<?php echo $tokenConfigured ? 'Configured — leave blank to keep it' : 'Not configured'; ?>">
+                    <label for="whatsapp_api_token">Transport API credential</label>
+                    <input type="password" class="form-control" name="whatsapp_api_token" id="whatsapp_api_token" autocomplete="new-password" placeholder="<?php echo $tokenConfigured ? 'Configured — leave blank to keep it' : 'Paste the transport API token or key'; ?>">
+                    <p class="text-muted mtop5">Stored securely and never displayed again. The transport may accept this as a bearer token or API key.</p>
                 </div>
                 <?php if ($tokenConfigured) { ?>
                     <div class="checkbox checkbox-danger"><input type="checkbox" id="clear_whatsapp_api_token" name="clear_whatsapp_api_token" value="1"><label for="clear_whatsapp_api_token">Clear the saved transport token</label></div>
@@ -113,6 +122,7 @@ if ($CI->db->table_exists($updatesTable)) {
                     <label for="api_enabled">Enable the external Magic Login API</label>
                 </div>
                 <p class="text-muted">Use the Bearer-authenticated endpoints documented in the module API guide. Existing plaintext keys are never displayed.</p>
+                <p class="control-label small tw-mb-2">Available endpoints</p>
                 <p class="small"><code>/magic_login/api/create-link</code> · <code>/request-otp</code> · <code>/verify-otp</code> · <code>/revoke</code></p>
             </div>
             <div class="col-md-4">
@@ -168,12 +178,17 @@ if ($CI->db->table_exists($updatesTable)) {
                 </select></div>
                 <p class="text-muted">Unattended installation still requires a valid GitHub release, matching manifest, SHA-256 checksum and contiguous Perfex migration target.</p>
                 <button class="btn btn-default" type="submit" name="settings_action" value="check_updates">Check GitHub</button>
-                <button class="btn btn-info" type="submit" name="settings_action" value="install_update">Install latest</button>
+                <?php if ($updateAvailable) { ?>
+                    <button class="btn btn-info" type="submit" name="settings_action" value="install_update">Install v<?php echo html_escape((string) $releaseCache['version']); ?></button>
+                <?php } elseif ($releaseCheckedAt > 0) { ?>
+                    <span class="label label-success tw-ml-2">Up to date</span>
+                <?php } ?>
             </div>
             <div class="col-md-4"><div class="panel_s tw-mt-0"><div class="panel-body">
                 <p class="text-muted small tw-mb-1">Installed module</p>
                 <p class="tw-font-semibold">v<?php echo html_escape(defined('MAGIC_LOGIN_VERSION') ? MAGIC_LOGIN_VERSION : 'unknown'); ?></p>
                 <p class="text-muted small tw-mb-0"><?php echo html_escape((string) get_option('magic_login_last_update_status')); ?></p>
+                <?php if ($releaseCheckedAt > 0) { ?><p class="text-muted small tw-mt-2 tw-mb-0">Last checked <?php echo html_escape(_dt(date('Y-m-d H:i:s', $releaseCheckedAt))); ?></p><?php } ?>
             </div></div></div>
         </div>
         <?php if (!empty($updates)) { ?>
@@ -187,7 +202,29 @@ if ($CI->db->table_exists($updatesTable)) {
     </div>
 </div>
 
-<div class="tw-flex tw-items-center tw-justify-between tw-mt-5">
-    <p class="text-muted small tw-mb-0">Changes are saved through the module’s admin-only settings handler.</p>
-    <button type="submit" class="btn btn-primary"><i class="fa-regular fa-floppy-disk tw-mr-1"></i> Save Magic Login settings</button>
-</div>
+<script>
+(function () {
+    window.addEventListener('load', function () {
+        var jq = window.jQuery;
+        if (!jq || !jq.fn || typeof jq.fn.tab !== 'function') return;
+
+        function activateMagicLoginTab() {
+            var hash = window.location.hash;
+            if (!hash || hash.indexOf('#magic-') !== 0) return;
+            var tab = document.querySelector('a[data-toggle="tab"][href="' + hash + '"]');
+            if (tab) jq(tab).tab('show');
+        }
+
+        activateMagicLoginTab();
+        jq('a[data-toggle="tab"][href^="#magic-"]').on('shown.bs.tab', function (event) {
+            var hash = event.target.getAttribute('href');
+            if (hash && window.history && window.history.replaceState) {
+                window.history.replaceState(null, document.title, window.location.pathname + window.location.search + hash);
+            } else if (hash) {
+                window.location.hash = hash;
+            }
+        });
+        window.addEventListener('hashchange', activateMagicLoginTab);
+    });
+})();
+</script>
