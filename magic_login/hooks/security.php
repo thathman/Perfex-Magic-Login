@@ -24,7 +24,7 @@ function magic_login_render_altcha_widget($class = '')
         return;
     }
 
-    echo '<altcha-widget class="' . html_escape($class) . '" name="altcha" challengeurl="'
+    echo '<altcha-widget class="' . html_escape($class) . '" name="magic_login_altcha" challengeurl="'
         . html_escape(magic_login_altcha_challenge_url())
         . '" hidefooter="true" aria-hidden="true"></altcha-widget>';
 }
@@ -73,7 +73,7 @@ function magic_login_guard_client_auth($controller)
         return;
     }
 
-    if (magic_login_altcha_enabled() && !magic_login_verify_altcha((string) $controller->input->post('altcha', false))) {
+    if (magic_login_altcha_enabled() && !magic_login_verify_altcha((string) $controller->input->post('magic_login_altcha', false))) {
         set_alert('warning', 'Please complete the security check and try again.');
         redirect(site_url($uri));
     }
@@ -91,7 +91,7 @@ function magic_login_guard_admin_auth()
         return;
     }
 
-    if (!magic_login_verify_altcha((string) $CI->input->post('altcha', false))) {
+    if (!magic_login_verify_altcha((string) $CI->input->post('magic_login_altcha', false))) {
         set_alert('warning', 'Please complete the security check and try again.');
         redirect(admin_url('authentication'));
     }

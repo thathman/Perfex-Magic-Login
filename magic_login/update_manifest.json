@@ -1,5 +1,5 @@
 {
-  "version": "1.1.4",
+  "version": "1.1.5",
   "auto_update_safe": false,
   "notes": "Set auto_update_safe to true only for releases reviewed as safe for unattended installation."
 }
