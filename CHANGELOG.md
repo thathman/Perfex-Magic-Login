@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.5
+
+### Fixed
+
+- Namespaced Magic Login's ALTCHA proof field so it cannot be mistaken for the separate Airix ALTCHA payload format when both modules protect the same page.
+- Kept password, registration, email-link and WhatsApp requests protected by Magic Login's own verifier while allowing the site-wide ALTCHA guard to validate its own forms independently.
+
 ## 1.1.4
 
 ### Fixed

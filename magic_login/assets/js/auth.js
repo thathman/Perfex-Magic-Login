@@ -306,11 +306,11 @@
     }
 
     function setAltchaPayload(form, payload) {
-        var input = form.querySelector('input[name="altcha"]');
+        var input = form.querySelector('input[name="magic_login_altcha"]');
         if (!input) {
             input = document.createElement('input');
             input.type = 'hidden';
-            input.name = 'altcha';
+            input.name = 'magic_login_altcha';
             form.appendChild(input);
         }
         input.value = payload;
@@ -431,7 +431,7 @@
             var maxAttempts = 20;
 
             function attempt() {
-                var payload = form.querySelector('input[name="altcha"]');
+                var payload = form.querySelector('input[name="magic_login_altcha"]');
                 if (payload && payload.value) {
                     if (form.getAttribute('data-magic-login-ajax') === 'true') {
                         submitAjax(form, widget).catch(function (error) {

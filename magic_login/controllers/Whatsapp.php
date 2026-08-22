@@ -58,7 +58,7 @@ class Whatsapp extends ClientsController
         }
 
         if (function_exists('magic_login_altcha_enabled') && magic_login_altcha_enabled()
-            && !$this->magic_login_altcha->verify((string) $this->input->post('altcha', false))) {
+            && !$this->magic_login_altcha->verify((string) $this->input->post('magic_login_altcha', false))) {
             if ($this->input->is_ajax_request()) {
                 return $this->respond(false, 'The security check could not be verified. Please try again.', null, 422);
             }
@@ -117,7 +117,7 @@ class Whatsapp extends ClientsController
 
         if ($this->input->post()) {
             if (function_exists('magic_login_altcha_enabled') && magic_login_altcha_enabled()
-                && !$this->magic_login_altcha->verify((string) $this->input->post('altcha', false))) {
+                && !$this->magic_login_altcha->verify((string) $this->input->post('magic_login_altcha', false))) {
                 if ($this->input->is_ajax_request()) {
                     return $this->respond(false, 'The security check could not be verified. Please try again.', null, 422);
                 }
