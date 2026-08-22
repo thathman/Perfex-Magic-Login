@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.1.3
+
+### Added
+
+- Operations-only Magic Login workspace with a server-side Login Links table, server-side Audit Log, pagination, SQL-backed filters and modal link creation.
+- Native Perfex AJAX contact search and native Perfex Settings integration.
+- Humanized audit history, responsive admin improvements and settings UX refinements.
+- Indexes supporting operational query performance for link lifecycle, source, destination and date queries.
+
+### Changed
+
+- Preserved permissions and regression protection for the client password-login toggle, ALTCHA validation, email, WhatsApp and API flows.
+- Moved the operational index migration to a new idempotent `113` migration so published `1.1.2` installations upgrade safely.
+- v1.1.3 supersedes the earlier v1.1.2 admin-UI candidate; the published v1.1.2 release remains unchanged.
+
 ## 1.1.2
 
 ### Added

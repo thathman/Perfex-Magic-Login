@@ -5,12 +5,12 @@ defined('BASEPATH') or exit('No direct script access allowed');
 /*
 Module Name: Magic Login
 Description: Secure one-click login links and passwordless access for Perfex CRM client contacts
-Version: 1.1.2
+Version: 1.1.3
 Requires at least: 3.0.*
 */
 
 define('MAGIC_LOGIN_MODULE', 'magic_login');
-define('MAGIC_LOGIN_VERSION', '1.1.2');
+define('MAGIC_LOGIN_VERSION', '1.1.3');
 
 /**
  * Return true when Perfex has newer Magic Login files than the module schema
@@ -39,6 +39,7 @@ require_once __DIR__ . '/hooks/updates.php';
 
 hooks()->add_action('admin_init', 'magic_login_module_init_menu_items');
 hooks()->add_action('admin_init', 'magic_login_permissions');
+hooks()->add_filter('module_magic_login_action_links', 'magic_login_module_action_links');
 
 register_activation_hook(MAGIC_LOGIN_MODULE, 'magic_login_module_activation_hook');
 function magic_login_module_activation_hook()
@@ -60,6 +61,21 @@ function magic_login_permissions()
 function magic_login_module_init_menu_items()
 {
     $CI = &get_instance();
+
+    if (is_admin() && isset($CI->app) && method_exists($CI->app, 'add_settings_section_child')) {
+        $CI->app->add_settings_section_child(
+            'integrations',
+            'magic_login',
+            [
+                'name'       => 'Magic Login',
+                'view'       => 'magic_login/settings',
+                'position'   => 15,
+                'icon'       => 'fa-solid fa-link',
+                'update_url' => admin_url('magic_login/save_settings'),
+            ]
+        );
+    }
+
     if (staff_can('view', 'magic_login') || is_admin()) {
         $upgradeRequired = magic_login_database_upgrade_required();
         $CI->app_menu->add_sidebar_menu_item('magic-login', [
@@ -69,4 +85,13 @@ function magic_login_module_init_menu_items()
             'icon'     => $upgradeRequired ? 'fa fa-exclamation-triangle' : 'fa fa-link',
         ]);
     }
+}
+
+function magic_login_module_action_links($actions)
+{
+    if (is_admin()) {
+        $actions[] = '<a href="' . admin_url('settings?group=magic_login') . '">' . _l('settings') . '</a>';
+    }
+
+    return $actions;
 }
