@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.2
+
+### Added
+
+- Automatic ALTCHA verification on password, registration, password-reset, magic-link and WhatsApp authentication forms.
+- Inline AJAX success and error feedback for passwordless requests.
+- Visible resend cooldowns for email links and WhatsApp codes.
+- Country-aware WhatsApp number formatting with international dial-code selection.
+- Administrator setting to disable username-and-password client login.
+
+### Changed
+
+- Refreshed Magic Login and WhatsApp authentication views to integrate with the Airix client theme.
+- Improved dark-mode icon contrast and responsive form behavior.
+- Hardened cooldown, rate-limit and duplicate-request handling across passwordless authentication flows.
+
 ## 1.1.1 - Release candidate
 
 ### Added
