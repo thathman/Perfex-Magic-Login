@@ -426,6 +426,37 @@
             resetWidget(widget);
         }
 
+        function submitAfterAltchaPayload() {
+            var attempts = 0;
+            var maxAttempts = 20;
+
+            function attempt() {
+                var payload = form.querySelector('input[name="altcha"]');
+                if (payload && payload.value) {
+                    if (form.getAttribute('data-magic-login-ajax') === 'true') {
+                        submitAjax(form, widget).catch(function (error) {
+                            settled = false;
+                            finishWithError(error.message);
+                            startCooldown(form.getAttribute('data-magic-login-cooldown'), error.cooldown);
+                        });
+                        return;
+                    }
+                    submitNative(form);
+                    return;
+                }
+
+                attempts += 1;
+                if (attempts >= maxAttempts) {
+                    settled = false;
+                    finishWithError('The security check could not be verified. Please try again.');
+                    return;
+                }
+                window.setTimeout(attempt, 50);
+            }
+
+            attempt();
+        }
+
         function onStateChange(event) {
             var detail = event.detail || {};
             if (detail.state === 'error' || detail.state === 'expired') {
@@ -441,16 +472,7 @@
             window.clearTimeout(timeout);
             widget.removeEventListener('statechange', onStateChange);
             showFeedback(form, 'progress', 'Security check complete. Sending…');
-
-            if (form.getAttribute('data-magic-login-ajax') === 'true') {
-                submitAjax(form, widget).catch(function (error) {
-                    settled = false;
-                    finishWithError(error.message);
-                    startCooldown(form.getAttribute('data-magic-login-cooldown'), error.cooldown);
-                });
-                return;
-            }
-            submitNative(form);
+            submitAfterAltchaPayload();
         }
 
         widget.addEventListener('statechange', onStateChange);

@@ -5,12 +5,12 @@ defined('BASEPATH') or exit('No direct script access allowed');
 /*
 Module Name: Magic Login
 Description: Secure one-click login links and passwordless access for Perfex CRM client contacts
-Version: 1.1.3
+Version: 1.1.4
 Requires at least: 3.0.*
 */
 
 define('MAGIC_LOGIN_MODULE', 'magic_login');
-define('MAGIC_LOGIN_VERSION', '1.1.3');
+define('MAGIC_LOGIN_VERSION', '1.1.4');
 
 /**
  * Return true when Perfex has newer Magic Login files than the module schema

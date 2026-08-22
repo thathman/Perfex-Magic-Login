@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.4
+
+### Fixed
+
+- Waited for the automatic ALTCHA widget to attach its hidden proof before submitting passwordless AJAX requests, preventing valid email and WhatsApp requests from being rejected as unverifiable.
+- Kept the fix idempotent and schema-neutral with a no-op Perfex migration target.
+
 ## 1.1.3
 
 ### Added
