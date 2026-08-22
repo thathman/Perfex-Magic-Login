@@ -14,8 +14,8 @@ function magic_login_render_whatsapp_login_link()
         return;
     }
 
-    echo '<div class="text-center mtop20">';
-    echo '<div class="text-muted mbot10">or</div>';
+    echo '<div class="airix-auth-method-block">';
+    echo '<div class="airix-auth-divider"><span>or continue without a password</span></div>';
     echo '<a class="airix-auth-method airix-auth-method--whatsapp" href="' . html_escape(site_url('magic_login/whatsapp')) . '">';
     echo '<span class="airix-auth-method__icon" aria-hidden="true"><i class="fa-brands fa-whatsapp"></i></span>';
     echo '<span><strong>Continue with WhatsApp</strong><small>Use a one-time code sent to your phone</small></span>';

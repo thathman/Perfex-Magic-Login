@@ -18,6 +18,11 @@ class Magic_login_otp
         $phone = $this->normalize_phone($phone);
         $ip = substr((string) $this->CI->input->ip_address(), 0, 45);
 
+        $cooldown = $this->cooldown_remaining($ip);
+        if ($cooldown > 0) {
+            return ['ok' => false, 'reason' => 'cooldown', 'retry_after' => $cooldown];
+        }
+
         if (!$this->within_rate_limit($ip)) {
             return ['ok' => false, 'reason' => 'rate_limited'];
         }
@@ -168,6 +173,44 @@ class Magic_login_otp
         return $phone;
     }
 
+    public function normalize_phone_for_country($phone, $countryId)
+    {
+        $raw = trim((string) $phone);
+        if ($raw === '') {
+            return false;
+        }
+
+        if (substr($raw, 0, 1) === '+' || substr(preg_replace('/\s+/', '', $raw), 0, 2) === '00') {
+            return $this->normalize_phone($raw);
+        }
+
+        $country = get_country((int) $countryId);
+        if (!$country) {
+            return false;
+        }
+
+        $callingCode = preg_replace('/\D+/', '', (string) $country->calling_code);
+        $national = preg_replace('/\D+/', '', $raw);
+        if ($callingCode === '' || $national === '') {
+            return false;
+        }
+
+        // A pasted international number without its + prefix should not have
+        // the selected calling code added a second time.
+        if (strpos($national, $callingCode) === 0 && strlen($national) >= 8) {
+            return $this->normalize_phone('+' . $national);
+        }
+
+        // Most countries drop a domestic trunk zero in international format.
+        // Italy, San Marino and Vatican geographic numbers retain that zero.
+        $retainTrunkZero = in_array(strtoupper((string) $country->iso2), ['IT', 'SM', 'VA'], true);
+        if (!$retainTrunkZero) {
+            $national = ltrim($national, '0');
+        }
+
+        return $this->normalize_phone('+' . $callingCode . $national);
+    }
+
     protected function find_contact_by_phone($normalized)
     {
         // Compare normalized values so a duplicate cannot evade the check by
@@ -198,6 +241,22 @@ class Magic_login_otp
             ->count_all_results(db_prefix() . 'magic_login_otps');
 
         return $count < 10;
+    }
+
+    protected function cooldown_remaining($ip)
+    {
+        $row = $this->CI->db
+            ->select('created_at')
+            ->where('requested_ip', $ip)
+            ->order_by('id', 'desc')
+            ->limit(1)
+            ->get(db_prefix() . 'magic_login_otps')
+            ->row_array();
+        if (!$row || empty($row['created_at'])) {
+            return 0;
+        }
+
+        return max(0, 60 - (time() - strtotime($row['created_at'])));
     }
 
     protected function within_contact_rate_limit($contactId)

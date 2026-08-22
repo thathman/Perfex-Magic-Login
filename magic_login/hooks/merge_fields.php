@@ -14,21 +14,36 @@ hooks()->add_filter('before_parse_email_template_message', 'magic_login_prepare_
 
 function magic_login_available_merge_fields($available)
 {
+    $customerTemplateTypes = [
+        'client',
+        'contract',
+        'credit_note',
+        'estimate',
+        'estimate_request',
+        'gdpr',
+        'invoice',
+        'project',
+        'proposals',
+        'subscriptions',
+        'tasks',
+        'ticket',
+    ];
+
     $definitions = [
         [
             'name'      => 'Magic Login URL',
             'key'       => '{magic_login_url}',
-            'available' => ['client', 'invoice', 'estimate', 'proposal', 'contract', 'ticket', 'project'],
+            'available' => $customerTemplateTypes,
         ],
         [
             'name'      => 'Magic Login Button',
             'key'       => '{magic_login_button}',
-            'available' => ['client', 'invoice', 'estimate', 'proposal', 'contract', 'ticket', 'project'],
+            'available' => $customerTemplateTypes,
         ],
         [
             'name'      => 'Magic Login Expiry',
             'key'       => '{magic_login_expiry}',
-            'available' => ['client', 'invoice', 'estimate', 'proposal', 'contract', 'ticket', 'project'],
+            'available' => $customerTemplateTypes,
         ],
     ];
 

@@ -26,17 +26,17 @@ function magic_login_render_altcha_widget($class = '')
 
     echo '<altcha-widget class="' . html_escape($class) . '" name="altcha" challengeurl="'
         . html_escape(magic_login_altcha_challenge_url())
-        . '" auto="onsubmit" display="floating" hidefooter="true"></altcha-widget>';
+        . '" hidefooter="true" aria-hidden="true"></altcha-widget>';
 }
 
 function magic_login_render_customer_altcha_assets()
 {
     $uri = trim((string) get_instance()->uri->uri_string(), '/');
-    if (!magic_login_altcha_enabled() || !preg_match('#^(authentication/(login|register|forgot_password)|magic_login/(request|whatsapp))(?:/|$)#i', $uri)) {
+    if (!magic_login_altcha_enabled() || !preg_match('#^(authentication/(login|register|forgot_password|reset_password)|magic_login/(request|whatsapp))(?:/|$)#i', $uri)) {
         return;
     }
 
-    echo '<script type="module" async defer src="https://cdn.jsdelivr.net/npm/altcha' . chr(64) . '1.0.5/dist/altcha.min.js"></script>';
+    magic_login_render_altcha_assets();
 }
 
 function magic_login_render_admin_altcha_assets()
@@ -45,9 +45,16 @@ function magic_login_render_admin_altcha_assets()
         return;
     }
 
-    $challenge = html_escape(magic_login_altcha_challenge_url());
+    magic_login_render_altcha_assets();
+}
+
+function magic_login_render_altcha_assets()
+{
+    $authScript = module_dir_path(MAGIC_LOGIN_MODULE, 'assets/js/auth.js');
+    $authVersion = MAGIC_LOGIN_VERSION . '-' . (file_exists($authScript) ? filemtime($authScript) : '0');
+    echo '<style>.airix-altcha-widget{position:fixed!important;left:-10000px!important;bottom:0!important;width:1px!important;height:1px!important;overflow:hidden!important;opacity:0!important;pointer-events:none!important}</style>';
     echo '<script type="module" async defer src="https://cdn.jsdelivr.net/npm/altcha' . chr(64) . '1.0.5/dist/altcha.min.js"></script>';
-    echo '<script>(function(){document.addEventListener("DOMContentLoaded",function(){document.querySelectorAll("form").forEach(function(form){if(form.querySelector("altcha-widget")){return;}var widget=document.createElement("altcha-widget");widget.setAttribute("name","altcha");widget.setAttribute("challengeurl","' . $challenge . '");widget.setAttribute("auto","onsubmit");widget.setAttribute("display","floating");widget.setAttribute("hidefooter","true");widget.style.display="none";form.appendChild(widget);});});}());</script>';
+    echo '<script defer src="' . html_escape(base_url('modules/' . MAGIC_LOGIN_MODULE . '/assets/js/auth.js?v=' . $authVersion)) . '"></script>';
 }
 
 function magic_login_render_admin_altcha()

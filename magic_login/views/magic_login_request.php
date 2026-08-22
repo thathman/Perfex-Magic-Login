@@ -21,9 +21,10 @@
         <div class="airix-auth-form__inner">
             <div class="airix-auth-form-meta"><span>Airix Media client portal</span><time data-airix-local-date></time></div>
             <div class="airix-auth-welcome"><p class="airix-auth-greeting" data-airix-greeting>Welcome.</p><h2 id="magic-login-heading" class="login-heading">Email me a secure link</h2><p>It expires shortly and works only once.</p></div>
-            <?= form_open(site_url('magic_login/request/send'), ['class' => 'login-form airix-login-form airix-magic-form']); ?>
+            <?= form_open(site_url('magic_login/request/send'), ['class' => 'login-form airix-login-form airix-magic-form', 'data-magic-login-ajax' => 'true', 'data-magic-login-cooldown' => 'email']); ?>
                 <div class="form-group"><label for="email">Email address</label><div class="airix-input-shell"><i class="fa-regular fa-envelope" aria-hidden="true"></i><input type="email" name="email" id="email" class="form-control" autocomplete="email" placeholder="name@organisation.com" required></div></div>
                 <?php if (function_exists('magic_login_render_altcha_widget')) { magic_login_render_altcha_widget('airix-altcha-widget'); } ?>
+                <div class="airix-auth-feedback" data-magic-login-feedback role="status" aria-live="polite" hidden></div>
                 <div class="form-group airix-auth-submit"><button type="submit" class="btn btn-primary btn-block"><span>Send secure link</span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button></div>
             <?= form_close(); ?>
             <div class="airix-auth-methods"><a class="airix-auth-back" href="<?= site_url('authentication/login'); ?>"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to sign in</a><a class="airix-auth-secondary" href="<?= site_url('magic_login/whatsapp'); ?>">Use WhatsApp instead</a></div>

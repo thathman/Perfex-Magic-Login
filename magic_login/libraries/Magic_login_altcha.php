@@ -9,21 +9,37 @@ defined('BASEPATH') or exit('No direct script access allowed');
 class Magic_login_altcha
 {
     private const MAX_NUMBER = 500000;
+    private const PRIVATE_NETWORK_MAX_NUMBER = 50000;
     private const TTL = 600;
 
     public function challenge()
     {
         $salt = bin2hex(random_bytes(16)) . '?expires=' . (time() + self::TTL);
-        $number = random_int(0, self::MAX_NUMBER);
+        $maximum = $this->maximumForRequest();
+        $number = random_int(0, $maximum);
         $challenge = hash('sha256', $salt . $number);
 
         return [
             'algorithm'  => 'SHA-256',
             'challenge'  => $challenge,
-            'maxnumber'  => self::MAX_NUMBER,
+            'maxnumber'  => $maximum,
             'salt'       => $salt,
             'signature'  => hash_hmac('sha256', $challenge, $this->key()),
         ];
+    }
+
+    private function maximumForRequest()
+    {
+        $host = strtolower(trim((string) parse_url(base_url(), PHP_URL_HOST)));
+        $isPrivateIp = filter_var($host, FILTER_VALIDATE_IP)
+            && !filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+
+        // Web Crypto is unavailable on plain-HTTP private IPs. Keep LAN staging
+        // responsive for the bundled JavaScript fallback; public hosts retain
+        // the full production work factor.
+        return $isPrivateIp || $host === 'localhost'
+            ? self::PRIVATE_NETWORK_MAX_NUMBER
+            : self::MAX_NUMBER;
     }
 
     public function verify($payload)
@@ -47,7 +63,6 @@ class Magic_login_altcha
         }
 
         $parts = parse_url('https://altcha.local/?' . (strpos($data['salt'], '?') !== false ? explode('?', $data['salt'], 2)[1] : ''));
-        $expires = isset($parts['query']) ? null : null;
         parse_str((string) ($parts['query'] ?? ''), $params);
         if (empty($params['expires']) || (int) $params['expires'] < time()) {
             return false;
